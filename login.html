@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Spend - Login & Register</title>
+  <meta name="description" content="Sign in or register to Clear Spend to track and manage your personal expenses.">
+  <!-- Dynamic ClearSpend SVG Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 34'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23FF7527'/%3E%3Cstop offset='45%25' stop-color='%23E86558'/%3E%3Cstop offset='65%25' stop-color='%236F60EA'/%3E%3Cstop offset='100%25' stop-color='%232860F5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M 4 2 C 4 8, 12 9, 12 15 C 12 21, 5 23, 5 32' stroke='url(%23g)' stroke-width='4.5' stroke-linecap='butt' fill='none'/%3E%3Cpath d='M 15 2 C 15 8, 23 9, 23 15 C 23 21, 16 23, 16 32' stroke='url(%23g)' stroke-width='4.5' stroke-linecap='butt' fill='none'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .auth-page-wrapper {
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      box-sizing: border-box;
+      background: radial-gradient(circle at 50% 25%, rgba(99, 102, 241, 0.1) 0%, transparent 65%), var(--bg-app);
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 460px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 2.25rem 2rem;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      box-sizing: border-box;
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .auth-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .auth-header .logo-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .auth-header h2 {
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .auth-header p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .auth-nav-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+      background: var(--bg-card-subtle);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      margin-bottom: 1.4rem;
+    }
+
+    .auth-tab-btn {
+      padding: 0.55rem;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+      text-align: center;
+    }
+
+    .auth-tab-btn.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .auth-alert {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-md);
+      font-size: 0.825rem;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .auth-alert-error {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .auth-alert-success {
+      background: var(--color-success-bg);
+      color: var(--color-success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .guest-link-wrapper {
+      text-align: center;
+      margin-top: 1.25rem;
+      font-size: 0.8125rem;
+    }
+
+    .guest-link-wrapper a {
+      color: var(--color-primary);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .guest-link-wrapper a:hover {
+      color: var(--color-primary-hover);
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-page-wrapper">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="logo-icon">
+          <svg width="26" height="32" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="ClearSpend Logo">
+            <defs>
+              <linearGradient id="loginLogoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#FF722B" />
+                <stop offset="42%" stop-color="#E86558" />
+                <stop offset="68%" stop-color="#675DF5" />
+                <stop offset="100%" stop-color="#2860F5" />
+              </linearGradient>
+            </defs>
+            <path d="M 4 2 C 4 8, 12 9, 12 15 C 12 21, 5 23, 5 32" stroke="url(#loginLogoGrad)" stroke-width="4.5" stroke-linecap="butt" fill="none" />
+            <path d="M 15 2 C 15 8, 23 9, 23 15 C 23 21, 16 23, 16 32" stroke="url(#loginLogoGrad)" stroke-width="4.5" stroke-linecap="butt" fill="none" />
+          </svg>
+        </div>
+        <h2>Clear Spend</h2>
+        <p id="authSubtitle">Sign in to manage your personal expenses</p>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="auth-nav-tabs">
+        <button class="auth-tab-btn active" id="tabSignIn">Sign In</button>
+        <button class="auth-tab-btn" id="tabRegister">Create Account</button>
+      </div>
+
+      <!-- Alert Box -->
+      <div class="auth-alert" id="authAlert"></div>
+
+      <!-- Sign In Form -->
+      <form id="signInForm" class="auth-form">
+        <div class="form-group">
+          <label for="loginIdentifier" class="form-label">Username or Email</label>
+          <input type="text" id="loginIdentifier" class="form-control" placeholder="e.g. john or john@example.com" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword" class="form-label">Password</label>
+          <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="loginSubmitBtn" style="width: 100%; margin-top: 0.35rem;">
+          Sign In
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" class="auth-form" style="display: none;">
+        <div class="form-group">
+          <label for="regUsername" class="form-label">Username <span class="required">*</span></label>
+          <input type="text" id="regUsername" class="form-control" placeholder="e.g. john" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="regEmail" class="form-label">Email Address <span class="required">*</span></label>
+          <input type="email" id="regEmail" class="form-control" placeholder="john@example.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label for="regPassword" class="form-label">Password <span class="required">*</span></label>
+          <input type="password" id="regPassword" class="form-control" placeholder="At least 6 characters" minlength="6" required autocomplete="new-password">
+        </div>
+
+        <div class="form-group">
+          <label for="regConfirmPassword" class="form-label">Confirm Password <span class="required">*</span></label>
+          <input type="password" id="regConfirmPassword" class="form-control" placeholder="Repeat your password" minlength="6" required autocomplete="new-password">
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="registerSubmitBtn" style="width: 100%; margin-top: 0.35rem;">
+          Create Account
+        </button>
+      </form>
+
+      <!-- Guest Access Link -->
+      <div class="guest-link-wrapper">
+        <a href="index.html?guest=1" id="continueGuestLink">Continue as Guest &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE_URL = 'http://localhost:5000/api';
+
+    // Elements
+    const tabSignIn = document.getElementById('tabSignIn');
+    const tabRegister = document.getElementById('tabRegister');
+    const signInForm = document.getElementById('signInForm');
+    const registerForm = document.getElementById('registerForm');
+    const authSubtitle = document.getElementById('authSubtitle');
+    const authAlert = document.getElementById('authAlert');
+
+    // Tab Switch
+    tabSignIn.addEventListener('click', () => {
+      tabSignIn.classList.add('active');
+      tabRegister.classList.remove('active');
+      signInForm.style.display = 'flex';
+      registerForm.style.display = 'none';
+      authSubtitle.textContent = 'Sign in to manage your personal expenses';
+      hideAlert();
+    });
+
+    tabRegister.addEventListener('click', () => {
+      tabRegister.classList.add('active');
+      tabSignIn.classList.remove('active');
+      signInForm.style.display = 'none';
+      registerForm.style.display = 'flex';
+      authSubtitle.textContent = 'Create your personal account';
+      hideAlert();
+    });
+
+    // Alert Helpers
+    function showAlert(msg, type = 'error') {
+      authAlert.textContent = msg;
+      authAlert.className = `auth-alert ${type === 'success' ? 'auth-alert-success' : 'auth-alert-error'}`;
+      authAlert.style.display = 'flex';
+    }
+
+    function hideAlert() {
+      authAlert.style.display = 'none';
+    }
+
+    // Sign In Submission
+    signInForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert();
+      const submitBtn = document.getElementById('loginSubmitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
+
+      const username = document.getElementById('loginIdentifier').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          localStorage.setItem('clearspend_user', JSON.stringify(data.user));
+          showAlert(`Welcome back, ${data.user.username}! Redirecting...`, 'success');
+          setTimeout(() => {
+            window.location.href = 'index.html';
+          }, 800);
+        } else {
+          showAlert(data.error || 'Invalid credentials.');
+        }
+      } catch (err) {
+        showAlert('Unable to sign in right now. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
+      }
+    });
+
+    // Register Submission
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert();
+
+      const username = document.getElementById('regUsername').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const confirmPass = document.getElementById('regConfirmPassword').value;
+
+      if (password !== confirmPass) {
+        showAlert('Passwords do not match.');
+        return;
+      }
+
+      const submitBtn = document.getElementById('registerSubmitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating account...';
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          localStorage.setItem('clearspend_user', JSON.stringify(data.user));
+          showAlert(`Account created! Welcome, ${data.user.username}. Redirecting...`, 'success');
+          setTimeout(() => {
+            window.location.href = 'index.html';
+          }, 1000);
+        } else {
+          showAlert(data.error || 'Registration failed.');
+        }
+      } catch (err) {
+        showAlert('Unable to create account right now. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Account';
+      }
+    });
+
+    // Theme initialization
+    const savedTheme = localStorage.getItem('clearspend_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+</body>
+</html>

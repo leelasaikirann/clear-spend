@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Spend</title>
+  <meta name="description" content="A modern, privacy-first personal spend and expense tracker web app with interactive charts and budget tracking.">
+  <!-- Dynamic ClearSpend SVG Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 34'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23FF7527'/%3E%3Cstop offset='45%25' stop-color='%23E86558'/%3E%3Cstop offset='65%25' stop-color='%236F60EA'/%3E%3Cstop offset='100%25' stop-color='%232860F5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M 4 2 C 4 8, 12 9, 12 15 C 12 21, 5 23, 5 32' stroke='url(%23g)' stroke-width='4.5' stroke-linecap='butt' fill='none'/%3E%3Cpath d='M 15 2 C 15 8, 23 9, 23 15 C 23 21, 16 23, 16 32' stroke='url(%23g)' stroke-width='4.5' stroke-linecap='butt' fill='none'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="app-header">
+    <div class="container header-container">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <svg width="24" height="30" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="ClearSpend Logo">
+            <defs>
+              <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#FF722B" />
+                <stop offset="42%" stop-color="#E86558" />
+                <stop offset="68%" stop-color="#675DF5" />
+                <stop offset="100%" stop-color="#2860F5" />
+              </linearGradient>
+            </defs>
+            <path d="M 4 2 C 4 8, 12 9, 12 15 C 12 21, 5 23, 5 32" stroke="url(#headerLogoGrad)" stroke-width="4.5" stroke-linecap="butt" fill="none" />
+            <path d="M 15 2 C 15 8, 23 9, 23 15 C 23 21, 16 23, 16 32" stroke="url(#headerLogoGrad)" stroke-width="4.5" stroke-linecap="butt" fill="none" />
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>Clear Spend</h1>
+          <span class="tagline">Personal Finance & Spend Tracker</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Currency Selector -->
+        <div class="select-wrapper">
+          <label for="currencySelect" class="sr-only">Currency</label>
+          <select id="currencySelect" title="Select Currency" aria-label="Select Currency">
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="INR" selected>INR (₹)</option>
+            <option value="CAD">CAD ($)</option>
+            <option value="AUD">AUD ($)</option>
+            <option value="JPY">JPY (¥)</option>
+          </select>
+        </div>
+
+        <!-- Data Tools Dropdown -->
+        <div class="dropdown">
+          <button class="btn btn-secondary dropdown-toggle" id="dataMenuBtn" aria-haspopup="true" aria-expanded="false" title="Data Management">
+            <span>⚙️ Data</span>
+          </button>
+          <div class="dropdown-menu" id="dataDropdownMenu">
+            <button class="dropdown-item" id="exportCsvBtn">📥 Export as CSV</button>
+            <button class="dropdown-item" id="exportJsonBtn">💾 Backup as JSON</button>
+            <button class="dropdown-item" id="importJsonBtn">📤 Restore from JSON</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" id="loadDemoDataBtn">🎲 Load Demo Data</button>
+            <button class="dropdown-item text-danger" id="clearAllDataBtn">🗑️ Reset All Data</button>
+          </div>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button class="btn-icon" id="themeToggleBtn" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">
+          <span id="themeIcon">🌙</span>
+        </button>
+
+        <!-- User Authentication & Profile Dropdown -->
+        <div class="dropdown" id="userAuthDropdown">
+          <button class="btn btn-secondary dropdown-toggle" id="userProfileBtn" title="Account">
+            <span id="userProfileIcon">👤</span>
+            <span id="userProfileName">Sign In</span>
+          </button>
+          <div class="dropdown-menu" id="userMenuDropdown">
+            <div id="loggedInUserSection" style="display: none;">
+              <div style="padding: 0.5rem 0.75rem; font-size: 0.8125rem;">
+                <div style="font-weight: 700;" id="menuUserName">User</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);" id="menuUserEmail">user@example.com</div>
+              </div>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item text-danger" id="logoutBtn">🚪 Logout</button>
+            </div>
+            <div id="loggedOutUserSection">
+              <a href="login.html" class="dropdown-item" style="text-decoration: none;">🔑 Sign In</a>
+              <a href="login.html" class="dropdown-item" style="text-decoration: none;">✨ Create Account</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Transaction Trigger -->
+        <button class="btn btn-primary" id="openAddModalBtn">
+          <span>+ Add Transaction</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content container">
+    <!-- Top Summary Metrics -->
+    <section class="metrics-grid">
+      <div class="metric-card balance-card">
+        <div class="metric-header">
+          <span class="metric-title">Net Balance</span>
+          <span class="metric-icon">💳</span>
+        </div>
+        <div class="metric-value" id="netBalanceDisplay">₹0.00</div>
+        <div class="metric-subtext" id="netBalanceSubtext">All time net position</div>
+      </div>
+
+      <div class="metric-card income-card">
+        <div class="metric-header">
+          <span class="metric-title">Monthly Income</span>
+          <span class="metric-icon">📈</span>
+        </div>
+        <div class="metric-value text-success" id="monthlyIncomeDisplay">₹0.00</div>
+        <div class="metric-subtext" id="monthlyIncomeSubtext">This month's earnings</div>
+      </div>
+
+      <div class="metric-card expense-card">
+        <div class="metric-header">
+          <span class="metric-title">Monthly Spending</span>
+          <span class="metric-icon">📉</span>
+        </div>
+        <div class="metric-value text-danger" id="monthlyExpenseDisplay">₹0.00</div>
+        <div class="metric-subtext" id="monthlyExpenseSubtext">This month's outgoing</div>
+      </div>
+
+      <div class="metric-card budget-card">
+        <div class="metric-header">
+          <span class="metric-title">Budget Remaining</span>
+          <button class="btn-text-sm" id="editBudgetBtn">Edit Limit</button>
+        </div>
+        <div class="metric-value" id="budgetRemainingDisplay">₹0.00</div>
+        <div class="budget-progress-wrapper">
+          <div class="budget-progress-bar" id="budgetProgressBar" style="width: 0%;"></div>
+        </div>
+        <div class="budget-stats-line">
+          <span id="budgetSpentRatio">Spent: ₹0 / ₹0</span>
+          <span id="budgetPercentage">0%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visual Analytics Section -->
+    <section class="analytics-grid">
+      <!-- Category Distribution Donut Chart -->
+      <div class="chart-card">
+        <div class="card-header">
+          <h3>Spending by Category</h3>
+          <span class="card-badge" id="categoryChartPeriod">This Month</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="categoryChart"></canvas>
+          <div class="chart-empty-state" id="categoryChartEmpty">
+            <span>📊 No expense data to display for this period</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trend Analysis Bar Chart -->
+      <div class="chart-card">
+        <div class="card-header">
+          <h3>Spending & Income Trend</h3>
+          <span class="card-badge">Last 6 Months</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="trendChart"></canvas>
+          <div class="chart-empty-state" id="trendChartEmpty">
+            <span>📈 No trend data yet</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Transactions Section -->
+    <section class="transactions-section">
+      <div class="section-toolbar">
+        <div class="toolbar-title-group">
+          <h2>Recent Transactions</h2>
+          <span class="count-badge" id="transactionCountBadge">0 records</span>
+        </div>
+
+        <!-- Filters & Search Toolbar -->
+        <div class="filter-controls">
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search title or notes..." aria-label="Search transactions">
+          </div>
+
+          <div class="select-wrapper">
+            <select id="typeFilter" aria-label="Filter by type">
+              <option value="all">All Types</option>
+              <option value="expense">Expenses Only</option>
+              <option value="income">Income Only</option>
+            </select>
+          </div>
+
+          <div class="select-wrapper">
+            <select id="categoryFilter" aria-label="Filter by category">
+              <option value="all">All Categories</option>
+              <!-- Filled dynamically by JavaScript -->
+            </select>
+          </div>
+
+          <div class="select-wrapper">
+            <select id="dateRangeFilter" aria-label="Filter by date range">
+              <option value="this-month" selected>This Month</option>
+              <option value="today">Today</option>
+              <option value="this-week">This Week</option>
+              <option value="last-month">Last Month</option>
+              <option value="this-year">This Year</option>
+              <option value="all-time">All Time</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transactions List Container -->
+      <div class="transactions-card">
+        <div class="transactions-table-header">
+          <div class="col-type">Type</div>
+          <div class="col-info">Transaction</div>
+          <div class="col-cat">Category</div>
+          <div class="col-date">Date</div>
+          <div class="col-amount">Amount</div>
+          <div class="col-actions">Actions</div>
+        </div>
+
+        <div class="transactions-list" id="transactionsList">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+          <div class="empty-icon">💸</div>
+          <h3>No transactions found</h3>
+          <p>Try clearing your filters or add your first transaction to get started.</p>
+          <button class="btn btn-primary btn-sm" id="emptyAddBtn">+ Add Transaction</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="container footer-content">
+      <p>Clear Spend &copy; 2026. 100% Client-Side &amp; Private. Ready for free hosting on GitHub Pages.</p>
+      <div class="footer-links">
+        <button class="footer-link-btn" id="footerDemoDataBtn">Load Sample Data</button>
+        <span class="sep">•</span>
+        <button class="footer-link-btn" id="footerHelpBtn">GitHub Pages Guide</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Add/Edit Transaction Modal -->
+  <div class="modal-backdrop" id="transactionModal" aria-hidden="true">
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add Transaction</h3>
+        <button class="modal-close-btn" id="closeModalBtn" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="transactionForm" class="modal-body">
+        <input type="hidden" id="editTransactionId">
+
+        <!-- Type Toggle (Expense vs Income) -->
+        <div class="form-group">
+          <label class="form-label">Transaction Type</label>
+          <div class="type-toggle-group">
+            <label class="type-radio-btn active" id="typeExpenseLabel">
+              <input type="radio" name="txType" value="expense" checked>
+              <span>🔻 Expense</span>
+            </label>
+            <label class="type-radio-btn" id="typeIncomeLabel">
+              <input type="radio" name="txType" value="income">
+              <span>🔺 Income</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Title / Description -->
+        <div class="form-group">
+          <label for="txTitle" class="form-label">Description / Merchant <span class="required">*</span></label>
+          <input type="text" id="txTitle" class="form-control" placeholder="e.g. Grocery store, Salary, Coffee" required>
+        </div>
+
+        <!-- Amount & Date row -->
+        <div class="form-row">
+          <div class="form-group col-half">
+            <label for="txAmount" class="form-label">Amount <span class="required">*</span></label>
+            <div class="amount-input-group">
+              <span class="currency-prefix" id="formCurrencyPrefix">₹</span>
+              <input type="number" id="txAmount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+          </div>
+
+          <div class="form-group col-half">
+            <label for="txDate" class="form-label">Date <span class="required">*</span></label>
+            <input type="date" id="txDate" class="form-control" required>
+          </div>
+        </div>
+
+        <!-- Category -->
+        <div class="form-group">
+          <label for="txCategory" class="form-label">Category <span class="required">*</span></label>
+          <select id="txCategory" class="form-control" required>
+            <!-- Injected dynamically based on selected type -->
+          </select>
+        </div>
+
+        <!-- Notes (optional) -->
+        <div class="form-group">
+          <label for="txNotes" class="form-label">Notes (Optional)</label>
+          <textarea id="txNotes" class="form-control" rows="2" placeholder="Add receipt details or tags..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveTransactionBtn">Save Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Budget Settings Modal -->
+  <div class="modal-backdrop" id="budgetModal" aria-hidden="true">
+    <div class="modal-dialog modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Monthly Budget Limit</h3>
+        <button class="modal-close-btn" id="closeBudgetModalBtn">&times;</button>
+      </div>
+      <form id="budgetForm" class="modal-body">
+        <p class="text-muted">Set a monthly spending limit to monitor your budget health and receive alerts.</p>
+        <div class="form-group mt-3">
+          <label for="budgetInput" class="form-label">Budget Limit (<span id="budgetCurrencyLabel">₹</span>)</label>
+          <input type="number" id="budgetInput" class="form-control" min="0" step="100" placeholder="e.g. 50000" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelBudgetBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Budget</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Hidden File Input for JSON Restore -->
+  <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+
+  <!-- GitHub Pages Help Modal -->
+  <div class="modal-backdrop" id="helpModal" aria-hidden="true">
+    <div class="modal-dialog" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>🚀 How to Host This on GitHub Pages (Free)</h3>
+        <button class="modal-close-btn" id="closeHelpModalBtn">&times;</button>
+      </div>
+      <div class="modal-body help-guide">
+        <ol>
+          <li><strong>Create a GitHub Repository:</strong> Go to <a href="https://github.com/new" target="_blank">github.com/new</a> and name it <code>spent-tracker</code>. Choose <strong>Public</strong>.</li>
+          <li><strong>Push this folder:</strong> Upload or git push all files in this project to the <code>main</code> branch.</li>
+          <li><strong>Enable GitHub Pages:</strong>
+            <ul>
+              <li>Open your repository on GitHub &rarr; click <strong>Settings</strong>.</li>
+              <li>Click <strong>Pages</strong> in the left sidebar menu.</li>
+              <li>Under <em>Build and deployment &gt; Branch</em>, choose <strong>main</strong> and <strong>/ (root)</strong>, then click <strong>Save</strong>.</li>
+            </ul>
+          </li>
+          <li><strong>Live URL:</strong> Within 1-2 minutes, your website is live at <code>https://&lt;username&gt;.github.io/spent-tracker/</code>!</li>
+        </ol>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="gotItHelpBtn">Got it!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Application Scripts -->
+  <script src="js/store.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
