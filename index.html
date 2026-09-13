@@ -60,6 +60,8 @@
             <span>⚙️ Data</span>
           </button>
           <div class="dropdown-menu" id="dataDropdownMenu">
+            <button class="dropdown-item" id="syncDbBtn">🔄 Sync with SSMS</button>
+            <div class="dropdown-divider"></div>
             <button class="dropdown-item" id="exportCsvBtn">📥 Export as CSV</button>
             <button class="dropdown-item" id="exportJsonBtn">💾 Backup as JSON</button>
             <button class="dropdown-item" id="importJsonBtn">📤 Restore from JSON</button>
@@ -198,6 +200,12 @@
           </div>
 
           <div class="select-wrapper">
+            <select id="userFilter" aria-label="Filter by user">
+              <option value="all">All Users</option>
+            </select>
+          </div>
+
+          <div class="select-wrapper">
             <select id="typeFilter" aria-label="Filter by type">
               <option value="all">All Types</option>
               <option value="expense">Expenses Only</option>
@@ -316,6 +324,16 @@
           <label for="txCategory" class="form-label">Category <span class="required">*</span></label>
           <select id="txCategory" class="form-control" required>
             <!-- Injected dynamically based on selected type -->
+          </select>
+        </div>
+
+        <!-- User / Member -->
+        <div class="form-group">
+          <label for="txUser" class="form-label">User / Member</label>
+          <select id="txUser" class="form-control">
+            <option value="Sai">Sai</option>
+            <option value="leela">leela</option>
+            <option value="kiran">kiran</option>
           </select>
         </div>
 

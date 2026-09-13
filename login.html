@@ -437,6 +437,14 @@
       }
     });
 
+    // Continue as guest
+    const continueGuestLink = document.getElementById('continueGuestLink');
+    if (continueGuestLink) {
+      continueGuestLink.addEventListener('click', () => {
+        localStorage.removeItem('clearspend_user');
+      });
+    }
+
     // Theme initialization
     const savedTheme = localStorage.getItem('clearspend_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);

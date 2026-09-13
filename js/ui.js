@@ -155,7 +155,10 @@ const UI = (() => {
             <div class="type-indicator-circle" title="${t.type.toUpperCase()}">${icon}</div>
           </div>
           <div class="col-info tx-main-info">
-            <div class="tx-title">${escapeHTML(t.title)}</div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="tx-title">${escapeHTML(t.title)}</span>
+              <span class="user-pill" style="font-size: 0.72rem; font-weight: 600; color: var(--color-primary); background: rgba(99, 102, 241, 0.12); padding: 1px 7px; border-radius: 999px; display: inline-flex; align-items: center; gap: 3px;">👤 ${escapeHTML(t.username || 'User')}</span>
+            </div>
             ${t.notes ? `<div class="tx-notes" title="${escapeHTML(t.notes)}">${escapeHTML(t.notes)}</div>` : ''}
           </div>
           <div class="col-cat">
@@ -217,12 +220,62 @@ const UI = (() => {
   };
 
   /**
+   * Populate User Filter dropdown in Toolbar
+   */
+  const populateUserFilter = (users = []) => {
+    const userFilter = document.getElementById('userFilter');
+    if (!userFilter) return;
+
+    const currentUser = Store.getCurrentUser();
+    if (currentUser.isGuest) {
+      userFilter.innerHTML = '<option value="all">Guest</option>';
+      return;
+    }
+
+    const currentVal = userFilter.value || 'all';
+    const distinctUsers = new Set();
+
+    if (currentUser.username) {
+      distinctUsers.add(currentUser.username);
+    }
+
+    if (Array.isArray(users)) {
+      users.forEach(u => {
+        const name = typeof u === 'string' ? u : (u.username || u.Username);
+        if (name) distinctUsers.add(name);
+      });
+    }
+
+    Store.getTransactions().forEach(t => {
+      if (t.username) distinctUsers.add(t.username);
+    });
+
+    userFilter.innerHTML = '<option value="all">All Users</option>' +
+      Array.from(distinctUsers).map(u => `<option value="${escapeHTML(u)}"${currentVal === u ? ' selected' : ''}>👤 ${escapeHTML(u)}</option>`).join('');
+  };
+
+  /**
    * Open Add/Edit Transaction Modal
    */
   const openTransactionModal = (tx = null) => {
     transactionForm.reset();
     const currency = Store.getCurrencySymbol();
     formCurrencyPrefix.textContent = currency;
+
+    const txUserSelect = document.getElementById('txUser');
+    if (txUserSelect) {
+      const currentUser = Store.getCurrentUser();
+      const distinctUsers = new Set();
+      let activeUser = currentUser.isGuest ? 'Guest' : (currentUser.username || 'User');
+      distinctUsers.add(activeUser);
+
+      Store.getTransactions().forEach(t => {
+        if (t.username) distinctUsers.add(t.username);
+      });
+
+      txUserSelect.innerHTML = Array.from(distinctUsers).map(u => `<option value="${escapeHTML(u)}">${escapeHTML(u)}</option>`).join('');
+      txUserSelect.value = (tx && tx.username) ? tx.username : activeUser;
+    }
 
     if (tx) {
       // Editing existing
@@ -303,6 +356,7 @@ const UI = (() => {
     renderTransactions,
     populateModalCategories,
     populateFilterCategories,
+    populateUserFilter,
     openTransactionModal,
     closeTransactionModal,
     openBudgetModal,

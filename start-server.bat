@@ -1,11 +1,15 @@
 @echo off
-title Clear Spend SQL Server API
+title Clear Spend Server and Database Sync
 cls
 echo ==========================================================
-echo Starting Clear Spend Backend (SSMS Integration)
+echo Clear Spend: Local Server and SSMS Integration
 echo ==========================================================
-echo Connecting to SQL Server: .\MSSQLSERVER01
-echo Database: ClearSpendDB
+echo Target SQL Servers : .\MSSQLSERVER01 and .\MSSQLSERVER02
+echo Database Name      : ClearSpendDB
+echo Dashboard Port     : http://localhost:5000/
+echo.
+echo Opening Clear Spend in your default web browser...
+start http://localhost:5000/
 echo.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0backend\server.ps1" -Port 5000
 pause

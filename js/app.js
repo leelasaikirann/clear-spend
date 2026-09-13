@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const gotItHelpBtn = document.getElementById('gotItHelpBtn');
   const footerHelpBtn = document.getElementById('footerHelpBtn');
   const searchInput = document.getElementById('searchInput');
+  const userFilter = document.getElementById('userFilter');
   const typeFilter = document.getElementById('typeFilter');
   const categoryFilter = document.getElementById('categoryFilter');
   const dateRangeFilter = document.getElementById('dateRangeFilter');
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Filter state
   const filters = {
     search: '',
+    user: 'all',
     type: 'all',
     category: 'all',
     dateRange: 'this-month'
@@ -93,6 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const getFilteredTransactions = () => {
     const all = Store.getTransactions();
     return all.filter(t => {
+      // User filter
+      if (filters.user !== 'all' && (t.username || '').toLowerCase() !== filters.user.toLowerCase()) return false;
+
       // Type filter
       if (filters.type !== 'all' && t.type !== filters.type) return false;
 
@@ -107,7 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = filters.search.toLowerCase();
         const titleMatch = (t.title || '').toLowerCase().includes(query);
         const notesMatch = (t.notes || '').toLowerCase().includes(query);
-        if (!titleMatch && !notesMatch) return false;
+        const userMatch = (t.username || '').toLowerCase().includes(query);
+        if (!titleMatch && !notesMatch && !userMatch) return false;
       }
 
       return true;
@@ -260,11 +266,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const category = document.getElementById('txCategory').value;
     const notes = document.getElementById('txNotes').value;
 
+    const txUserElem = document.getElementById('txUser');
+    const username = txUserElem ? txUserElem.value : undefined;
+
     if (id) {
-      Store.updateTransaction(id, { type, title, amount, date, category, notes });
+      Store.updateTransaction(id, { type, title, amount, date, category, notes, username });
       UI.showToast('Transaction updated successfully', 'success');
     } else {
-      Store.addTransaction({ type, title, amount, date, category, notes });
+      Store.addTransaction({ type, title, amount, date, category, notes, username });
       UI.showToast('Transaction added successfully', 'success');
     }
 
@@ -296,6 +305,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 150);
   });
 
+  if (userFilter) {
+    userFilter.addEventListener('change', (e) => {
+      filters.user = e.target.value;
+      refreshApp();
+    });
+  }
+
   typeFilter.addEventListener('change', (e) => {
     filters.type = e.target.value;
     refreshApp();
@@ -324,6 +340,21 @@ document.addEventListener('DOMContentLoaded', () => {
       dataDropdownMenu.parentElement.classList.remove('show');
     }
   });
+
+  // Sync with SSMS Database
+  const syncDbBtn = document.getElementById('syncDbBtn');
+  if (syncDbBtn) {
+    syncDbBtn.addEventListener('click', async () => {
+      UI.showToast('Syncing with SSMS Database...', 'info');
+      const res = await Store.syncFromDatabase();
+      if (res.success) {
+        refreshApp();
+        UI.showToast(`Synced ${res.count} transactions with database!`, 'success');
+      } else {
+        UI.showToast('Could not reach backend. Please run start-server.bat', 'warning');
+      }
+    });
+  }
 
   // Export CSV
   exportCsvBtn.addEventListener('click', () => {
@@ -393,30 +424,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const logoutBtn = document.getElementById('logoutBtn');
 
   const checkUserSession = () => {
-    const rawUser = localStorage.getItem('clearspend_user');
     const urlParams = new URLSearchParams(window.location.search);
     const isGuest = urlParams.get('guest') === '1';
 
-    if (rawUser) {
-      try {
-        const user = JSON.parse(rawUser);
-        userProfileName.textContent = user.username;
-        menuUserName.textContent = user.username;
-        menuUserEmail.textContent = user.email || '';
-        loggedInUserSection.style.display = 'block';
-        loggedOutUserSection.style.display = 'none';
-      } catch {
-        localStorage.removeItem('clearspend_user');
-      }
-    } else if (!isGuest) {
-      // Redirect to login page if not logged in and not explicitly guest
-      window.location.href = 'login.html';
-      return;
-    } else {
+    if (isGuest) {
       userProfileName.textContent = 'Guest';
       loggedInUserSection.style.display = 'none';
       loggedOutUserSection.style.display = 'block';
+      if (userFilter && userFilter.parentElement) {
+        userFilter.parentElement.style.display = 'none';
+      }
+      return;
     }
+
+    const rawUser = localStorage.getItem('clearspend_user');
+    if (rawUser) {
+      try {
+        const user = JSON.parse(rawUser);
+        if (user && user.username) {
+          userProfileName.textContent = user.username;
+          menuUserName.textContent = user.username;
+          menuUserEmail.textContent = user.email || '';
+          loggedInUserSection.style.display = 'block';
+          loggedOutUserSection.style.display = 'none';
+          if (userFilter && userFilter.parentElement) {
+            userFilter.parentElement.style.display = 'block';
+          }
+          return;
+        }
+      } catch {
+        localStorage.removeItem('clearspend_user');
+      }
+    }
+
+    // Redirect to login page if not logged in and not explicitly guest
+    window.location.href = 'login.html';
   };
 
   if (userProfileBtn) {
@@ -446,5 +488,31 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   UI.populateFilterCategories();
   UI.populateModalCategories('expense');
+
+  const currentUser = Store.getCurrentUser();
+  if (!currentUser.isGuest) {
+    UI.populateUserFilter([currentUser.username]);
+
+    // Load all users from backend and populate user filter
+    Store.fetchAllUsers().then((users) => {
+      if (users && users.length > 0) {
+        UI.populateUserFilter(users);
+      }
+    }).catch(() => {});
+
+    // Sync database for current logged-in user
+    Store.syncFromDatabase(currentUser.username).then((res) => {
+      if (res && res.success) {
+        UI.populateUserFilter();
+        refreshApp();
+      }
+    }).catch(() => {});
+  } else {
+    // Guest mode: hide user filter dropdown
+    if (userFilter && userFilter.parentElement) {
+      userFilter.parentElement.style.display = 'none';
+    }
+  }
+
   refreshApp();
 });

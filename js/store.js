@@ -67,22 +67,64 @@ const Store = (() => {
     { id: generateId(), type: 'expense', title: 'Pharmacy & Vitamins', amount: 950, category: 'healthcare', date: getDateOffset(0), notes: 'Health check supplements' }
   ];
 
-  // Initialization: check and seed default data if first visit
+  // Helper to resolve the current active user or guest
+  const getCurrentUser = () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('guest') === '1') {
+        return { username: 'Guest', isGuest: true };
+      }
+      const rawUser = localStorage.getItem('clearspend_user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        if (u && u.username) {
+          return { username: u.username, isGuest: false, userId: u.userId, email: u.email };
+        }
+      }
+    } catch {}
+    return { username: 'Guest', isGuest: true };
+  };
+
+  // Helper to scope storage keys per user/guest
+  const getUserStorageKey = (prefix) => {
+    const user = getCurrentUser();
+    const key = user.isGuest ? 'guest' : user.username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    return `${prefix}_${key}`;
+  };
+
+  // Initialization: ensure user-scoped data structure exists (never auto-seed demo data)
   const init = () => {
-    // Migration from old keys if existing
-    if (!localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) && localStorage.getItem('spentwise_transactions')) {
-      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, localStorage.getItem('spentwise_transactions'));
-      localStorage.setItem(STORAGE_KEYS.BUDGET, localStorage.getItem('spentwise_monthly_budget') || '50000');
-      localStorage.setItem(STORAGE_KEYS.CURRENCY, localStorage.getItem('spentwise_currency') || 'INR');
-      localStorage.setItem(STORAGE_KEYS.THEME, localStorage.getItem('spentwise_theme') || 'dark');
+    const user = getCurrentUser();
+    const txKey = getUserStorageKey(STORAGE_KEYS.TRANSACTIONS);
+    const budgetKey = getUserStorageKey(STORAGE_KEYS.BUDGET);
+
+    // If transactions key doesn't exist for this user/guest, initialize to empty array []
+    if (localStorage.getItem(txKey) === null) {
+      if (!user.isGuest && localStorage.getItem(STORAGE_KEYS.TRANSACTIONS)) {
+        // Migrate matching transactions for logged-in user if legacy storage exists
+        try {
+          const legacy = JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS));
+          if (Array.isArray(legacy)) {
+            const userTx = legacy.filter(t => (t.username || '').toLowerCase() === user.username.toLowerCase());
+            localStorage.setItem(txKey, JSON.stringify(userTx));
+          } else {
+            localStorage.setItem(txKey, JSON.stringify([]));
+          }
+        } catch {
+          localStorage.setItem(txKey, JSON.stringify([]));
+        }
+      } else {
+        // By default for new user or guest: empty array (ZERO)
+        localStorage.setItem(txKey, JSON.stringify([]));
+      }
     }
 
-    if (!localStorage.getItem(STORAGE_KEYS.TRANSACTIONS)) {
-      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(SAMPLE_TRANSACTIONS));
+    // Initialize user-scoped budget if not present
+    if (localStorage.getItem(budgetKey) === null) {
+      const legacyBudget = !user.isGuest ? localStorage.getItem(STORAGE_KEYS.BUDGET) : null;
+      localStorage.setItem(budgetKey, legacyBudget || '50000');
     }
-    if (!localStorage.getItem(STORAGE_KEYS.BUDGET)) {
-      localStorage.setItem(STORAGE_KEYS.BUDGET, '50000');
-    }
+
     if (!localStorage.getItem(STORAGE_KEYS.CURRENCY)) {
       localStorage.setItem(STORAGE_KEYS.CURRENCY, 'INR');
     }
@@ -94,7 +136,8 @@ const Store = (() => {
   // Transactions CRUD
   const getTransactions = () => {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+      const txKey = getUserStorageKey(STORAGE_KEYS.TRANSACTIONS);
+      const data = localStorage.getItem(txKey);
       return data ? JSON.parse(data) : [];
     } catch (e) {
       console.error('Failed to parse transactions:', e);
@@ -103,10 +146,14 @@ const Store = (() => {
   };
 
   const saveTransactions = (transactions) => {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    const txKey = getUserStorageKey(STORAGE_KEYS.TRANSACTIONS);
+    localStorage.setItem(txKey, JSON.stringify(transactions));
   };
 
   const addTransaction = (tx) => {
+    const user = getCurrentUser();
+    const defaultUsername = user.isGuest ? 'Guest' : (user.username || 'User');
+
     const transactions = getTransactions();
     const newTx = {
       id: generateId(),
@@ -115,14 +162,20 @@ const Store = (() => {
       amount: parseFloat(tx.amount) || 0,
       category: tx.category,
       date: tx.date || new Date().toISOString().split('T')[0],
-      notes: (tx.notes || '').trim()
+      notes: (tx.notes || '').trim(),
+      username: tx.username || defaultUsername
     };
     transactions.unshift(newTx);
     saveTransactions(transactions);
+    if (!user.isGuest) {
+      syncTxToDatabase(newTx);
+    }
     return newTx;
   };
 
   const updateTransaction = (id, updatedFields) => {
+    const user = getCurrentUser();
+    const defaultUsername = user.isGuest ? 'Guest' : (user.username || 'User');
     const transactions = getTransactions();
     const index = transactions.findIndex(t => t.id === id);
     if (index !== -1) {
@@ -133,27 +186,158 @@ const Store = (() => {
         amount: parseFloat(updatedFields.amount) || 0,
         category: updatedFields.category,
         date: updatedFields.date,
-        notes: (updatedFields.notes || '').trim()
+        notes: (updatedFields.notes || '').trim(),
+        username: updatedFields.username || transactions[index].username || defaultUsername
       };
       saveTransactions(transactions);
+      if (!user.isGuest) {
+        syncTxToDatabase(transactions[index]);
+      }
       return transactions[index];
     }
     return null;
   };
 
   const deleteTransaction = (id) => {
+    const user = getCurrentUser();
     const transactions = getTransactions().filter(t => t.id !== id);
     saveTransactions(transactions);
+    if (!user.isGuest) {
+      deleteTxFromDatabase(id);
+    }
+  };
+
+  const syncTxToDatabase = async (transaction) => {
+    try {
+      const user = getCurrentUser();
+      if (user.isGuest) return false;
+      const rawUser = localStorage.getItem('clearspend_user');
+      if (!rawUser) return false;
+      const parsed = JSON.parse(rawUser);
+      if (!parsed) return false;
+
+      const res = await fetch('http://localhost:5000/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: parsed.userId,
+          username: parsed.username,
+          transaction: transaction
+        })
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const deleteTxFromDatabase = async (id) => {
+    try {
+      const user = getCurrentUser();
+      if (user.isGuest) return;
+      const rawUser = localStorage.getItem('clearspend_user');
+      if (!rawUser) return;
+      const parsed = JSON.parse(rawUser);
+      if (!parsed) return;
+
+      await fetch(`http://localhost:5000/api/transactions?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(parsed.userId || '')}&username=${encodeURIComponent(parsed.username || '')}`, {
+        method: 'DELETE'
+      });
+    } catch {}
+  };
+
+  const syncAllToDatabase = async () => {
+    try {
+      const user = getCurrentUser();
+      if (user.isGuest) return { success: false, reason: 'guest_mode' };
+      const rawUser = localStorage.getItem('clearspend_user');
+      if (!rawUser) return { success: false, reason: 'no_user' };
+      const parsedUser = JSON.parse(rawUser);
+      const transactions = getTransactions();
+      if (!transactions || transactions.length === 0) return { success: true, count: 0 };
+
+      const res = await fetch('http://localhost:5000/api/transactions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: parsedUser.userId,
+          username: parsedUser.username,
+          transactions: transactions
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { success: true, count: data.syncedCount || transactions.length };
+      }
+      return { success: false, reason: 'server_error' };
+    } catch (e) {
+      return { success: false, reason: 'network_error' };
+    }
+  };
+
+  const syncFromDatabase = async (userFilter = 'all') => {
+    try {
+      const user = getCurrentUser();
+      if (user.isGuest) return { success: false, reason: 'guest_mode' };
+
+      const targetFilter = userFilter && userFilter !== 'all' ? userFilter : user.username;
+      const url = targetFilter && targetFilter !== 'all'
+        ? `http://localhost:5000/api/transactions?user=${encodeURIComponent(targetFilter)}`
+        : 'http://localhost:5000/api/transactions';
+
+      const res = await fetch(url);
+      if (!res.ok) return { success: false };
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.transactions)) {
+        const dbTransactions = data.transactions.map(t => ({
+          id: t.TransactionId,
+          userId: t.UserId,
+          username: t.Username || user.username || 'User',
+          type: t.Type,
+          title: t.Title,
+          amount: parseFloat(t.Amount) || 0,
+          category: t.Category,
+          date: t.Date,
+          notes: t.Notes || ''
+        }));
+
+        const currentLocal = getTransactions();
+        const dbIdMap = new Set(dbTransactions.map(t => t.id));
+        const localOnly = currentLocal.filter(t => !dbIdMap.has(t.id));
+
+        const merged = [...dbTransactions, ...localOnly];
+        saveTransactions(merged);
+        return { success: true, count: merged.length, transactions: merged };
+      }
+      return { success: false };
+    } catch (e) {
+      return { success: false, error: e };
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/users');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.success && Array.isArray(data.users) ? data.users : [];
+    } catch {
+      return [];
+    }
   };
 
   // Budget
   const getBudget = () => {
-    return parseFloat(localStorage.getItem(STORAGE_KEYS.BUDGET)) || 50000;
+    const budgetKey = getUserStorageKey(STORAGE_KEYS.BUDGET);
+    const stored = localStorage.getItem(budgetKey);
+    return stored !== null ? parseFloat(stored) || 50000 : 50000;
   };
 
   const setBudget = (amount) => {
+    const budgetKey = getUserStorageKey(STORAGE_KEYS.BUDGET);
     const num = Math.max(0, parseFloat(amount) || 0);
-    localStorage.setItem(STORAGE_KEYS.BUDGET, num.toString());
+    localStorage.setItem(budgetKey, num.toString());
     return num;
   };
 
@@ -208,11 +392,14 @@ const Store = (() => {
 
   // Reset to Demo Data
   const loadSampleData = () => {
+    const user = getCurrentUser();
+    const defaultUsername = user.isGuest ? 'Guest' : (user.username || 'User');
     // Regenerate dates to be current relative
     const freshSample = SAMPLE_TRANSACTIONS.map((tx, idx) => ({
       ...tx,
       id: generateId(),
-      date: getDateOffset(idx)
+      date: getDateOffset(idx),
+      username: defaultUsername
     }));
     saveTransactions(freshSample);
     return freshSample;
@@ -319,6 +506,11 @@ const Store = (() => {
     clearAll,
     exportToCSV,
     exportToJSON,
-    importFromJSON
+    importFromJSON,
+    syncAllToDatabase,
+    getCurrentUser,
+    getUserStorageKey,
+    syncFromDatabase,
+    fetchAllUsers
   };
 })();
