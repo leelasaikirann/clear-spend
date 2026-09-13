@@ -267,6 +267,33 @@
       authAlert.style.display = 'none';
     }
 
+    // Password hashing helper for client-side fallback
+    async function hashPassword(str) {
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(str);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch {
+        return btoa(str);
+      }
+    }
+
+    function getLocalAccounts() {
+      try {
+        return JSON.parse(localStorage.getItem('clearspend_accounts')) || [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveLocalAccount(user) {
+      const accounts = getLocalAccounts();
+      accounts.push(user);
+      localStorage.setItem('clearspend_accounts', JSON.stringify(accounts));
+    }
+
     // Sign In Submission
     signInForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -293,11 +320,46 @@
           setTimeout(() => {
             window.location.href = 'index.html';
           }, 800);
+          return;
         } else {
           showAlert(data.error || 'Invalid credentials.');
+          return;
         }
       } catch (err) {
-        showAlert('Unable to sign in right now. Please try again.');
+        // Fallback for GitHub Pages (HTTPS cannot call localhost HTTP due to browser Mixed Content policy)
+        const accounts = getLocalAccounts();
+        const hashed = await hashPassword(password);
+        const user = accounts.find(a => (a.username.toLowerCase() === username.toLowerCase() || (a.email && a.email.toLowerCase() === username.toLowerCase())));
+
+        if (user && user.passwordHash === hashed) {
+          localStorage.setItem('clearspend_user', JSON.stringify({
+            userId: user.userId || 1,
+            username: user.username,
+            email: user.email
+          }));
+          showAlert(`Welcome back, ${user.username}! Redirecting...`, 'success');
+          setTimeout(() => { window.location.href = 'index.html'; }, 800);
+          return;
+        } else if (user && user.passwordHash !== hashed) {
+          showAlert('Incorrect password. Please try again.');
+          return;
+        } else {
+          // Create instant session
+          const newSession = {
+            userId: Date.now(),
+            username: username,
+            email: username.includes('@') ? username : `${username}@clearspend.app`
+          };
+          saveLocalAccount({
+            ...newSession,
+            passwordHash: hashed,
+            createdAt: new Date().toISOString()
+          });
+          localStorage.setItem('clearspend_user', JSON.stringify(newSession));
+          showAlert(`Welcome, ${newSession.username}! Redirecting...`, 'success');
+          setTimeout(() => { window.location.href = 'index.html'; }, 800);
+          return;
+        }
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Sign In';
@@ -337,12 +399,38 @@
           showAlert(`Account created! Welcome, ${data.user.username}. Redirecting...`, 'success');
           setTimeout(() => {
             window.location.href = 'index.html';
-          }, 1000);
+          }, 900);
+          return;
         } else {
           showAlert(data.error || 'Registration failed.');
+          return;
         }
       } catch (err) {
-        showAlert('Unable to create account right now. Please try again.');
+        // Fallback for GitHub Pages
+        const accounts = getLocalAccounts();
+        const existing = accounts.find(a => a.username.toLowerCase() === username.toLowerCase() || a.email.toLowerCase() === email.toLowerCase());
+        if (existing) {
+          showAlert('Username or email already registered.');
+          return;
+        }
+
+        const hashed = await hashPassword(password);
+        const newAccount = {
+          userId: Date.now(),
+          username: username,
+          email: email,
+          passwordHash: hashed,
+          createdAt: new Date().toISOString()
+        };
+        saveLocalAccount(newAccount);
+        localStorage.setItem('clearspend_user', JSON.stringify({
+          userId: newAccount.userId,
+          username: newAccount.username,
+          email: newAccount.email
+        }));
+        showAlert(`Account created! Welcome, ${username}. Redirecting...`, 'success');
+        setTimeout(() => { window.location.href = 'index.html'; }, 900);
+        return;
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Create Account';
